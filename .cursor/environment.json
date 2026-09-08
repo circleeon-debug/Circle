@@ -1,0 +1,11 @@
+{
+  "name": "ebike-dashboard (Expo)",
+  "install": "cd ebike-dashboard && npm install",
+  "terminals": [
+    {
+      "name": "expo-web",
+      "command": "cd ebike-dashboard && npx expo start --web --port 8081"
+    }
+  ],
+  "ports": [8081]
+}
