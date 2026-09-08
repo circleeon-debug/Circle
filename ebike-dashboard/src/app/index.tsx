@@ -1,98 +1,120 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
+import { AssistSelector } from '@/components/dashboard/assist-selector';
+import { BatteryPanel } from '@/components/dashboard/battery-panel';
+import { RideControls } from '@/components/dashboard/ride-controls';
+import { SpeedGauge } from '@/components/dashboard/speed-gauge';
+import { StatCard } from '@/components/dashboard/stat-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
+import { ASSIST_MODES, MAX_SPEED_KMH } from '@/constants/ebike';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
+import { useRideSimulation } from '@/hooks/use-ride-simulation';
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
+function formatDuration(totalSeconds: number): string {
+  const s = Math.floor(totalSeconds);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
 }
 
-export default function HomeScreen() {
+export default function DashboardScreen() {
+  const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  const { telemetry, start, pause, reset, setAssist } = useRideSimulation();
+
+  const mode = ASSIST_MODES[telemetry.assistIndex];
+  const avgSpeed = telemetry.seconds > 0 ? telemetry.distance / (telemetry.seconds / 3600) : 0;
+
+  const topPad = Platform.select({ web: Spacing.six, default: insets.top + Spacing.three }) ?? Spacing.three;
+
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+    <ScrollView
+      style={[styles.scroll, { backgroundColor: theme.background }]}
+      contentContainerStyle={[
+        styles.content,
+        { paddingTop: topPad, paddingBottom: insets.bottom + BottomTabInset + Spacing.four },
+      ]}>
+      <ThemedView style={styles.container}>
+        <View style={styles.header}>
+          <View>
+            <ThemedText type="subtitle">Ride Dashboard</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {telemetry.status === 'riding'
+                ? 'Riding now'
+                : telemetry.status === 'paused'
+                  ? 'Paused'
+                  : 'Ready to ride'}
+            </ThemedText>
+          </View>
+          <View style={[styles.statusDot, { backgroundColor: telemetry.status === 'riding' ? mode.color : theme.textSecondary }]} />
+        </View>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+        <View style={styles.gaugeWrap}>
+          <SpeedGauge speed={telemetry.speed} max={MAX_SPEED_KMH} color={mode.color} label={mode.short} />
+        </View>
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+        <BatteryPanel battery={telemetry.battery} />
 
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+        <View style={styles.statsGrid}>
+          <StatCard label="Trip" value={telemetry.distance.toFixed(2)} unit="km" />
+          <StatCard label="Time" value={formatDuration(telemetry.seconds)} />
+          <StatCard label="Avg speed" value={avgSpeed.toFixed(1)} unit="km/h" />
+          <StatCard label="Motor" value={`${telemetry.power}`} unit="W" accent={mode.color} />
+          <StatCard label="Cadence" value={`${telemetry.cadence}`} unit="rpm" />
+          <StatCard label="Top mode" value={mode.label} />
+        </View>
+
+        <AssistSelector assistIndex={telemetry.assistIndex} onChange={setAssist} />
+
+        <RideControls
+          status={telemetry.status}
+          batteryEmpty={telemetry.battery <= 0}
+          onStart={start}
+          onPause={pause}
+          onReset={reset}
+        />
+      </ThemedView>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  scroll: {
     flex: 1,
-    justifyContent: 'center',
+  },
+  content: {
     flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
+    justifyContent: 'center',
     paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
   },
-  heroSection: {
+  container: {
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    gap: Spacing.three,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  statusDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+  },
+  gaugeWrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+    paddingVertical: Spacing.two,
   },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
   },
 });

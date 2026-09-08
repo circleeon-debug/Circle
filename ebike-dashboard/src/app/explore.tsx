@@ -1,180 +1,213 @@
-import { Image } from 'expo-image';
-import { SymbolView } from 'expo-symbols';
-import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ExternalLink } from '@/components/external-link';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Collapsible } from '@/components/ui/collapsible';
-import { WebBadge } from '@/components/web-badge';
+import { ASSIST_MODES } from '@/constants/ebike';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-export default function TabTwoScreen() {
-  const safeAreaInsets = useSafeAreaInsets();
-  const insets = {
-    ...safeAreaInsets,
-    bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three,
-  };
-  const theme = useTheme();
+type Trip = {
+  id: string;
+  route: string;
+  date: string;
+  distanceKm: number;
+  durationMin: number;
+  avgKmh: number;
+  batteryUsed: number;
+  mode: string;
+};
 
-  const contentPlatformStyle = Platform.select({
-    android: {
-      paddingTop: insets.top,
-      paddingLeft: insets.left,
-      paddingRight: insets.right,
-      paddingBottom: insets.bottom,
-    },
-    web: {
-      paddingTop: Spacing.six,
-      paddingBottom: Spacing.four,
-    },
-  });
+const TRIPS: Trip[] = [
+  { id: '1', route: 'Riverside Loop', date: 'Today · 08:12', distanceKm: 14.2, durationMin: 41, avgKmh: 20.8, batteryUsed: 22, mode: 'tour' },
+  { id: '2', route: 'Hillside Climb', date: 'Yesterday · 17:40', distanceKm: 9.6, durationMin: 34, avgKmh: 16.9, batteryUsed: 31, mode: 'turbo' },
+  { id: '3', route: 'Commute → Office', date: 'Mon · 07:55', distanceKm: 7.8, durationMin: 22, avgKmh: 21.3, batteryUsed: 14, mode: 'sport' },
+  { id: '4', route: 'Coastal Cruise', date: 'Sun · 10:05', distanceKm: 26.4, durationMin: 78, avgKmh: 20.3, batteryUsed: 38, mode: 'eco' },
+];
+
+function modeColor(key: string): string {
+  return ASSIST_MODES.find((m) => m.key === key)?.color ?? '#3c87f7';
+}
+
+function modeLabel(key: string): string {
+  return ASSIST_MODES.find((m) => m.key === key)?.label ?? key;
+}
+
+export default function TripsScreen() {
+  const theme = useTheme();
+  const insets = useSafeAreaInsets();
+
+  const totalKm = TRIPS.reduce((sum, t) => sum + t.distanceKm, 0);
+  const totalMin = TRIPS.reduce((sum, t) => sum + t.durationMin, 0);
+  const topPad = Platform.select({ web: Spacing.six, default: insets.top + Spacing.three }) ?? Spacing.three;
 
   return (
     <ScrollView
-      style={[styles.scrollView, { backgroundColor: theme.background }]}
-      contentInset={insets}
-      contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}>
+      style={[styles.scroll, { backgroundColor: theme.background }]}
+      contentContainerStyle={[
+        styles.content,
+        { paddingTop: topPad, paddingBottom: insets.bottom + BottomTabInset + Spacing.four },
+      ]}>
       <ThemedView style={styles.container}>
-        <ThemedView style={styles.titleContainer}>
-          <ThemedText type="subtitle">Explore</ThemedText>
-          <ThemedText style={styles.centerText} themeColor="textSecondary">
-            This starter app includes example{'\n'}code to help you get started.
-          </ThemedText>
+        <ThemedText type="subtitle">Trips</ThemedText>
 
-          <ExternalLink href="https://docs.expo.dev" asChild>
-            <Pressable style={({ pressed }) => pressed && styles.pressed}>
-              <ThemedView type="backgroundElement" style={styles.linkButton}>
-                <ThemedText type="link">Expo documentation</ThemedText>
-                <SymbolView
-                  tintColor={theme.text}
-                  name={{ ios: 'arrow.up.right.square', android: 'link', web: 'link' }}
-                  size={12}
-                />
-              </ThemedView>
-            </Pressable>
-          </ExternalLink>
+        <ThemedView type="backgroundElement" style={styles.summary}>
+          <View style={styles.summaryItem}>
+            <ThemedText style={styles.summaryValue}>{totalKm.toFixed(1)}</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              km this week
+            </ThemedText>
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.summaryItem}>
+            <ThemedText style={styles.summaryValue}>{TRIPS.length}</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              rides
+            </ThemedText>
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.summaryItem}>
+            <ThemedText style={styles.summaryValue}>{Math.round(totalMin)}</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              minutes
+            </ThemedText>
+          </View>
         </ThemedView>
 
-        <ThemedView style={styles.sectionsWrapper}>
-          <Collapsible title="File-based routing">
-            <ThemedText type="small">
-              This app has two screens: <ThemedText type="code">src/app/index.tsx</ThemedText> and{' '}
-              <ThemedText type="code">src/app/explore.tsx</ThemedText>
-            </ThemedText>
-            <ThemedText type="small">
-              The layout file in <ThemedText type="code">src/app/_layout.tsx</ThemedText> sets up
-              the tab navigator.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/router/introduction">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+        <View style={styles.list}>
+          {TRIPS.map((trip) => (
+            <ThemedView key={trip.id} type="backgroundElement" style={styles.card}>
+              <View style={styles.cardHeader}>
+                <View style={styles.cardTitle}>
+                  <ThemedText type="smallBold" style={styles.route}>
+                    {trip.route}
+                  </ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {trip.date}
+                  </ThemedText>
+                </View>
+                <View style={[styles.badge, { backgroundColor: modeColor(trip.mode) }]}>
+                  <ThemedText style={styles.badgeText}>{modeLabel(trip.mode)}</ThemedText>
+                </View>
+              </View>
 
-          <Collapsible title="Android, iOS, and web support">
-            <ThemedView type="backgroundElement" style={styles.collapsibleContent}>
-              <ThemedText type="small">
-                You can open this project on Android, iOS, and the web. To open the web version,
-                press <ThemedText type="smallBold">w</ThemedText> in the terminal running this
-                project.
-              </ThemedText>
-              <Image
-                source={require('@/assets/images/tutorial-web.png')}
-                style={styles.imageTutorial}
-              />
+              <View style={styles.metrics}>
+                <Metric value={`${trip.distanceKm.toFixed(1)}`} unit="km" label="Distance" />
+                <Metric value={`${trip.durationMin}`} unit="min" label="Time" />
+                <Metric value={`${trip.avgKmh.toFixed(1)}`} unit="km/h" label="Avg" />
+                <Metric value={`${trip.batteryUsed}`} unit="%" label="Battery" />
+              </View>
             </ThemedView>
-          </Collapsible>
-
-          <Collapsible title="Images">
-            <ThemedText type="small">
-              For static images, you can use the <ThemedText type="code">@2x</ThemedText> and{' '}
-              <ThemedText type="code">@3x</ThemedText> suffixes to provide files for different
-              screen densities.
-            </ThemedText>
-            <Image source={require('@/assets/images/react-logo.png')} style={styles.imageReact} />
-            <ExternalLink href="https://reactnative.dev/docs/images">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
-
-          <Collapsible title="Light and dark mode components">
-            <ThemedText type="small">
-              This template has light and dark mode support. The{' '}
-              <ThemedText type="code">useColorScheme()</ThemedText> hook lets you inspect what the
-              user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
-
-          <Collapsible title="Animations">
-            <ThemedText type="small">
-              This template includes an example of an animated component. The{' '}
-              <ThemedText type="code">src/components/ui/collapsible.tsx</ThemedText> component uses
-              the powerful <ThemedText type="code">react-native-reanimated</ThemedText> library to
-              animate opening this hint.
-            </ThemedText>
-          </Collapsible>
-        </ThemedView>
-        {Platform.OS === 'web' && <WebBadge />}
+          ))}
+        </View>
       </ThemedView>
     </ScrollView>
   );
 }
 
+function Metric({ value, unit, label }: { value: string; unit: string; label: string }) {
+  return (
+    <View style={styles.metric}>
+      <View style={styles.metricValueRow}>
+        <ThemedText style={styles.metricValue}>{value}</ThemedText>
+        <ThemedText type="small" themeColor="textSecondary" style={styles.metricUnit}>
+          {unit}
+        </ThemedText>
+      </View>
+      <ThemedText type="small" themeColor="textSecondary" style={styles.metricLabel}>
+        {label}
+      </ThemedText>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  scrollView: {
+  scroll: {
     flex: 1,
   },
-  contentContainer: {
+  content: {
     flexDirection: 'row',
     justifyContent: 'center',
+    paddingHorizontal: Spacing.four,
   },
   container: {
-    maxWidth: MaxContentWidth,
-    flexGrow: 1,
-  },
-  titleContainer: {
-    gap: Spacing.three,
-    alignItems: 'center',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.six,
-  },
-  centerText: {
-    textAlign: 'center',
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  linkButton: {
-    flexDirection: 'row',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.five,
-    justifyContent: 'center',
-    gap: Spacing.one,
-    alignItems: 'center',
-  },
-  sectionsWrapper: {
-    gap: Spacing.five,
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
-  },
-  collapsibleContent: {
-    alignItems: 'center',
-  },
-  imageTutorial: {
     width: '100%',
-    aspectRatio: 296 / 171,
-    borderRadius: Spacing.three,
-    marginTop: Spacing.two,
+    maxWidth: MaxContentWidth,
+    gap: Spacing.three,
   },
-  imageReact: {
-    width: 100,
-    height: 100,
-    alignSelf: 'center',
+  summary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: Spacing.three,
+    paddingHorizontal: Spacing.four,
+    borderRadius: Spacing.three,
+  },
+  summaryItem: {
+    alignItems: 'center',
+    flex: 1,
+    gap: 2,
+  },
+  summaryValue: {
+    fontSize: 26,
+    fontWeight: '700',
+  },
+  divider: {
+    width: 1,
+    height: 32,
+    backgroundColor: 'rgba(128,128,128,0.3)',
+  },
+  list: {
+    gap: Spacing.two,
+  },
+  card: {
+    padding: Spacing.three,
+    borderRadius: Spacing.three,
+    gap: Spacing.three,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  cardTitle: {
+    gap: 2,
+    flexShrink: 1,
+  },
+  route: {
+    fontSize: 16,
+  },
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  badgeText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  metrics: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  metric: {
+    gap: 2,
+  },
+  metricValueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 3,
+  },
+  metricValue: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  metricUnit: {
+    fontSize: 12,
+  },
+  metricLabel: {
+    fontSize: 12,
   },
 });
